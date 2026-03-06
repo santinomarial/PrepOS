@@ -1,0 +1,128 @@
+# PrepOS
+
+FastAPI + async SQLAlchemy backend for tracking **coding interview prep problems** and your **attempts** at solving them.
+
+## What exists so far
+
+- **REST API** with two resources:
+  - **Problems**: metadata you want to practice (title, url, topic, difficulty, tags, notes).
+  - **Attempts**: each time you try a problem (solved, time spent, mistakes, timestamp).
+- **Postgres persistence** via **SQLAlchemy 2.0 (async)** + `asyncpg`.
+- **Migrations** via **Alembic** (initial migration creates `problems` + `attempts` tables).
+- **Health check** endpoint: `GET /health`
+- **Interactive API docs** (FastAPI): `GET /docs`
+
+## Tech stack
+
+- **FastAPI**
+- **Uvicorn**
+- **SQLAlchemy (async)**
+- **Postgres** (`asyncpg`)
+- **Alembic**
+- **pydantic-settings** + `.env`
+
+## Project layout
+
+```
+app/
+  main.py              # FastAPI app + router registration
+  config.py            # Settings (reads .env)
+  database.py          # Async engine/session + Base + dependency
+  models/              # SQLAlchemy models (Problem, Attempt)
+  schemas/             # Pydantic schemas for API I/O
+  routers/             # FastAPI routers (/problems, /attempts)
+  services/            # CRUD logic used by routers
+alembic/               # Alembic env + versions
+alembic.ini
+requirements.txt
+.env
+```
+
+## Setup
+
+### 1) Create a virtualenv and install dependencies
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2) Configure the database URL
+
+This project expects `DATABASE_URL` to be set (loaded from `.env`).
+
+Current `.env` example:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/prepos
+```
+
+Make sure Postgres is running and the database exists (e.g. create `prepos`).
+
+## Database migrations (Alembic)
+
+Run migrations to create the tables:
+
+```bash
+alembic upgrade head
+```
+
+## Run the API
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Then open:
+
+- **Swagger UI**: `http://127.0.0.1:8000/docs`
+- **Health**: `http://127.0.0.1:8000/health`
+
+## API endpoints
+
+### Problems
+
+- `GET /problems` — list all problems
+- `GET /problems/{problem_id}` — get one problem
+- `POST /problems` — create a problem
+- `PATCH /problems/{problem_id}` — update a problem (partial)
+- `DELETE /problems/{problem_id}` — delete a problem
+
+#### Problem fields
+
+- **title** (required)
+- **url** (optional)
+- **topic** (optional)
+- **difficulty** (optional)
+- **tags** (optional, currently stored as text)
+- **notes** (optional)
+
+### Attempts
+
+- `GET /attempts` — list all attempts
+- `GET /attempts/{attempt_id}` — get one attempt
+- `POST /attempts` — create an attempt
+- `PATCH /attempts/{attempt_id}` — update an attempt (partial)
+- `DELETE /attempts/{attempt_id}` — delete an attempt
+
+#### Attempt fields
+
+- **problem_id** (required)
+- **solved** (default `false`)
+- **time_to_solve_minutes** (optional int)
+- **mistakes** (optional text)
+- **attempted_at** is set automatically by the DB
+
+## Notes / current behavior
+
+- The DB engine is created with `echo=True`, so SQL statements will be logged to the console.
+- If a requested `problem_id`/`attempt_id` doesn’t exist, the API returns **404** with `detail` of `"Problem not found"` / `"Attempt not found"`.
+
+## Next likely steps
+
+- Filter attempts by problem (e.g. `GET /problems/{id}/attempts`) and/or join responses.
+- Normalize tags (store as array or separate table instead of text).
+- Add Docker/dev compose for Postgres + API.
+- Add validation/constraints (difficulty enum, URL format, etc.).
+
