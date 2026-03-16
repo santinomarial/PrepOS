@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -11,8 +11,13 @@ router = APIRouter(prefix="/problems", tags=["problems"])
 
 
 @router.get("/", response_model=List[ProblemRead])
-async def list_problems(db: AsyncSession = Depends(get_db)):
-    return await problem_service.get_all(db)
+async def list_problems(
+    topic: Optional[str] = Query(None, description="Filter by topic"),
+    difficulty: Optional[str] = Query(None, description="Filter by difficulty"),
+    tag: Optional[str] = Query(None, description="Filter by tag (substring match)"),
+    db: AsyncSession = Depends(get_db),
+):
+    return await problem_service.get_all(db, topic=topic, difficulty=difficulty, tag=tag)
 
 
 @router.get("/{problem_id}", response_model=ProblemRead)

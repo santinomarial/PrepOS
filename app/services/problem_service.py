@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -8,8 +8,20 @@ from app.models.problem import Problem
 from app.schemas.problem import ProblemCreate, ProblemUpdate
 
 
-async def get_all(db: AsyncSession) -> List[Problem]:
-    result = await db.execute(select(Problem))
+async def get_all(
+    db: AsyncSession,
+    topic: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    tag: Optional[str] = None,
+) -> List[Problem]:
+    query = select(Problem)
+    if topic:
+        query = query.where(Problem.topic == topic)
+    if difficulty:
+        query = query.where(Problem.difficulty == difficulty)
+    if tag:
+        query = query.where(Problem.tags.ilike(f"%{tag}%"))
+    result = await db.execute(query)
     return result.scalars().all()
 
 

@@ -114,6 +114,87 @@ Then open:
 - **mistakes** (optional text)
 - **attempted_at** is set automatically by the DB
 
+## Problems API — curl examples
+
+> Assumes the server is running on `http://localhost:8000`.
+
+### Create a problem
+
+```bash
+curl -s -X POST http://localhost:8000/problems \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Two Sum",
+    "url": "https://leetcode.com/problems/two-sum/",
+    "topic": "arrays",
+    "difficulty": "easy",
+    "tags": "hash-map,arrays",
+    "notes": "Classic O(n) hash map solution"
+  }' | jq
+```
+
+### List all problems
+
+```bash
+curl -s http://localhost:8000/problems | jq
+```
+
+### List problems with filters
+
+```bash
+# By topic
+curl -s "http://localhost:8000/problems?topic=arrays" | jq
+
+# By difficulty
+curl -s "http://localhost:8000/problems?difficulty=easy" | jq
+
+# By tag (substring match)
+curl -s "http://localhost:8000/problems?tag=hash-map" | jq
+
+# Combined filters
+curl -s "http://localhost:8000/problems?topic=arrays&difficulty=easy" | jq
+```
+
+### Get a single problem
+
+```bash
+curl -s http://localhost:8000/problems/1 | jq
+```
+
+### Update a problem (partial)
+
+```bash
+curl -s -X PATCH http://localhost:8000/problems/1 \
+  -H "Content-Type: application/json" \
+  -d '{"difficulty": "medium", "notes": "Updated notes"}' | jq
+```
+
+### Delete a problem
+
+```bash
+curl -s -X DELETE http://localhost:8000/problems/1 -o /dev/null -w "%{http_code}\n"
+# Returns 204 on success
+```
+
+### Error responses
+
+**Not found (404)**
+```bash
+curl -s http://localhost:8000/problems/999 | jq
+# {"detail": "Problem not found"}
+```
+
+**Validation error (422)** — e.g. missing required `title`
+```bash
+curl -s -X POST http://localhost:8000/problems \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq
+# {
+#   "detail": "Validation error",
+#   "errors": [{"field": "title", "message": "Field required"}]
+# }
+```
+
 ## Notes / current behavior
 
 - The DB engine is created with `echo=True`, so SQL statements will be logged to the console.
