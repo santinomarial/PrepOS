@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attempt import Attempt
-from app.schemas.attempt import AttemptCreate, AttemptUpdate
+from app.schemas.attempt import AttemptCreate, AttemptCreateBody, AttemptUpdate
 
 
 async def get_all(db: AsyncSession) -> List[Attempt]:
@@ -21,8 +21,28 @@ async def get_by_id(db: AsyncSession, attempt_id: int) -> Attempt:
     return attempt
 
 
+async def get_by_problem_id(db: AsyncSession, problem_id: int) -> List[Attempt]:
+    result = await db.execute(
+        select(Attempt)
+        .where(Attempt.problem_id == problem_id)
+        .order_by(Attempt.attempted_at.desc())
+    )
+    return result.scalars().all()
+
+
 async def create(db: AsyncSession, payload: AttemptCreate) -> Attempt:
     attempt = Attempt(**payload.model_dump())
+    db.add(attempt)
+    await db.commit()
+    await db.refresh(attempt)
+    return attempt
+
+
+async def create_for_problem(
+    db: AsyncSession, problem_id: int, payload: AttemptCreateBody
+) -> Attempt:
+    data = payload.model_dump(exclude_unset=True)
+    attempt = Attempt(problem_id=problem_id, **data)
     db.add(attempt)
     await db.commit()
     await db.refresh(attempt)

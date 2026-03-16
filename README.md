@@ -114,6 +114,57 @@ Then open:
 - **mistakes** (optional text)
 - **attempted_at** is set automatically by the DB
 
+## Attempts API — curl examples
+
+> Nested under `/problems/{id}/attempts`. All examples assume the server is running on `http://localhost:8000`.
+
+### Log a new attempt (minimal)
+
+```bash
+curl -s -X POST http://localhost:8000/problems/1/attempts \
+  -H "Content-Type: application/json" \
+  -d '{"solved": true, "time_to_solve_minutes": 18}' | jq
+```
+
+### Log a backfilled attempt with a specific timestamp
+
+```bash
+curl -s -X POST http://localhost:8000/problems/1/attempts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "solved": false,
+    "time_to_solve_minutes": 45,
+    "mistakes": "Off-by-one in the sliding window bounds",
+    "attempted_at": "2026-03-10T14:30:00Z"
+  }' | jq
+```
+
+### List all attempts for a problem (sorted most-recent first)
+
+```bash
+curl -s http://localhost:8000/problems/1/attempts | jq
+```
+
+### Problem response now includes computed stats
+
+```bash
+curl -s http://localhost:8000/problems/1 | jq '.attempt_count, .last_attempted_at, .success_rate'
+# 3
+# "2026-03-16T10:00:00+00:00"
+# 66.7
+```
+
+### Error: attempt on a non-existent problem
+
+```bash
+curl -s -X POST http://localhost:8000/problems/999/attempts \
+  -H "Content-Type: application/json" \
+  -d '{"solved": true}' | jq
+# {"detail": "Problem not found"}
+```
+
+---
+
 ## Problems API — curl examples
 
 > Assumes the server is running on `http://localhost:8000`.

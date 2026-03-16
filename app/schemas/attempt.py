@@ -15,6 +15,15 @@ class AttemptCreate(AttemptBase):
     pass
 
 
+class AttemptCreateBody(BaseModel):
+    """Payload for POST /problems/{id}/attempts — problem_id comes from the path."""
+
+    solved: bool = False
+    time_to_solve_minutes: Optional[int] = None
+    mistakes: Optional[str] = None
+    attempted_at: Optional[datetime] = None
+
+
 class AttemptUpdate(BaseModel):
     solved: Optional[bool] = None
     time_to_solve_minutes: Optional[int] = None

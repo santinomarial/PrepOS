@@ -2,10 +2,13 @@ from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.problem import Problem
 from app.schemas.problem import ProblemCreate, ProblemUpdate
+
+_WITH_ATTEMPTS = selectinload(Problem.attempts)
 
 
 async def get_all(
@@ -14,7 +17,7 @@ async def get_all(
     difficulty: Optional[str] = None,
     tag: Optional[str] = None,
 ) -> List[Problem]:
-    query = select(Problem)
+    query = select(Problem).options(_WITH_ATTEMPTS)
     if topic:
         query = query.where(Problem.topic == topic)
     if difficulty:
@@ -26,7 +29,9 @@ async def get_all(
 
 
 async def get_by_id(db: AsyncSession, problem_id: int) -> Problem:
-    result = await db.execute(select(Problem).where(Problem.id == problem_id))
+    result = await db.execute(
+        select(Problem).options(_WITH_ATTEMPTS).where(Problem.id == problem_id)
+    )
     problem = result.scalar_one_or_none()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")

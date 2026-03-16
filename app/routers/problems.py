@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.schemas.attempt import AttemptCreateBody, AttemptRead
 from app.schemas.problem import ProblemCreate, ProblemRead, ProblemUpdate
-from app.services import problem_service
+from app.services import attempt_service, problem_service
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 
@@ -40,3 +41,27 @@ async def update_problem(
 @router.delete("/{problem_id}", status_code=204)
 async def delete_problem(problem_id: int, db: AsyncSession = Depends(get_db)):
     await problem_service.delete(db, problem_id)
+
+
+# --- Nested attempts ---
+
+
+@router.get("/{problem_id}/attempts", response_model=List[AttemptRead], tags=["attempts"])
+async def list_problem_attempts(problem_id: int, db: AsyncSession = Depends(get_db)):
+    await problem_service.get_by_id(db, problem_id)  # 404 if problem missing
+    return await attempt_service.get_by_problem_id(db, problem_id)
+
+
+@router.post(
+    "/{problem_id}/attempts",
+    response_model=AttemptRead,
+    status_code=201,
+    tags=["attempts"],
+)
+async def create_problem_attempt(
+    problem_id: int,
+    payload: AttemptCreateBody,
+    db: AsyncSession = Depends(get_db),
+):
+    await problem_service.get_by_id(db, problem_id)  # 404 if problem missing
+    return await attempt_service.create_for_problem(db, problem_id, payload)
