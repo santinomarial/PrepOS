@@ -1,10 +1,10 @@
-from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from datetime import date, datetime
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, computed_field
 
-if TYPE_CHECKING:
-    from app.schemas.attempt import AttemptRead
+# Direct import is safe: schemas/attempt.py does not import from schemas/problem.py.
+from app.schemas.attempt import AttemptRead
 
 
 class ProblemBase(BaseModel):
@@ -28,9 +28,11 @@ class ProblemRead(ProblemBase):
     id: int
     created_at: datetime
     # Loaded from the ORM relationship but not serialised into the response.
-    attempts: List["AttemptRead"] = Field(default=[], exclude=True)
+    attempts: List[AttemptRead] = Field(default=[], exclude=True)
 
     model_config = {"from_attributes": True}
+
+    # ── Attempt stats ─────────────────────────────────────────────────────────
 
     @computed_field
     @property
@@ -51,3 +53,35 @@ class ProblemRead(ProblemBase):
             return None
         solved = sum(1 for a in self.attempts if a.solved)
         return round(solved / len(self.attempts) * 100, 1)
+
+    # ── SM-2 schedule fields ──────────────────────────────────────────────────
+
+    @computed_field
+    @property
+    def next_review_date(self) -> date:
+        from app.services.scheduler import AttemptRecord, schedule
+
+        records = [
+            AttemptRecord(
+                solved=a.solved,
+                time_to_solve_minutes=a.time_to_solve_minutes,
+                attempted_at=a.attempted_at,
+            )
+            for a in self.attempts
+        ]
+        return schedule(records, difficulty=self.difficulty).next_review_date
+
+    @computed_field
+    @property
+    def priority_score(self) -> float:
+        from app.services.scheduler import AttemptRecord, schedule
+
+        records = [
+            AttemptRecord(
+                solved=a.solved,
+                time_to_solve_minutes=a.time_to_solve_minutes,
+                attempted_at=a.attempted_at,
+            )
+            for a in self.attempts
+        ]
+        return schedule(records, difficulty=self.difficulty).priority_score

@@ -21,6 +21,15 @@ async def list_problems(
     return await problem_service.get_all(db, topic=topic, difficulty=difficulty, tag=tag)
 
 
+# NOTE: /due must be declared before /{problem_id} so FastAPI does not attempt
+# to coerce the literal string "due" to an integer path parameter.
+@router.get("/due", response_model=List[ProblemRead])
+async def list_due_problems(db: AsyncSession = Depends(get_db)):
+    """Return all problems whose next_review_date is today or earlier,
+    sorted by priority_score descending (most urgent first)."""
+    return await problem_service.get_due(db)
+
+
 @router.get("/{problem_id}", response_model=ProblemRead)
 async def get_problem(problem_id: int, db: AsyncSession = Depends(get_db)):
     return await problem_service.get_by_id(db, problem_id)

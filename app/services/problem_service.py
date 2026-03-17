@@ -1,3 +1,4 @@
+from datetime import date
 from typing import List, Optional
 
 from fastapi import HTTPException
@@ -59,3 +60,28 @@ async def delete(db: AsyncSession, problem_id: int) -> None:
     problem = await get_by_id(db, problem_id)
     await db.delete(problem)
     await db.commit()
+
+
+async def get_due(db: AsyncSession) -> List[Problem]:
+    """Return all problems due for review today, sorted by priority_score descending."""
+    from app.services.scheduler import AttemptRecord, schedule
+
+    problems = await get_all(db)
+    today = date.today()
+
+    scored: list[tuple[Problem, float]] = []
+    for p in problems:
+        records = [
+            AttemptRecord(
+                solved=a.solved,
+                time_to_solve_minutes=a.time_to_solve_minutes,
+                attempted_at=a.attempted_at,
+            )
+            for a in p.attempts
+        ]
+        result = schedule(records, difficulty=p.difficulty)
+        if result.next_review_date <= today:
+            scored.append((p, result.priority_score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [p for p, _ in scored]
