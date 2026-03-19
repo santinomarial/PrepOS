@@ -37,7 +37,17 @@ async function request(path, options = {}) {
     ...options.headers,
   };
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const method = options.method ?? 'GET';
+  const url = `${BASE}${path}`;
+
+  console.debug(`[api] ${method} ${url}`, {
+    hasToken: !!token,
+    body: options.body ?? null,
+  });
+
+  const res = await fetch(url, { ...options, headers });
+
+  console.debug(`[api] ${method} ${url} → ${res.status}`);
 
   if (res.status === 401) {
     localStorage.removeItem('token');
@@ -51,6 +61,7 @@ async function request(path, options = {}) {
     let detail = 'Request failed';
     try {
       const body = await res.json();
+      console.debug(`[api] error body:`, body);
       detail = body.detail ?? detail;
     } catch {
       // ignore parse errors
@@ -58,7 +69,9 @@ async function request(path, options = {}) {
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
 
-  return res.json();
+  const data = await res.json();
+  console.debug(`[api] response data:`, data);
+  return data;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -93,13 +106,13 @@ export const problems = {
     const qs = new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== '')),
     ).toString();
-    return request(`/problems${qs ? `?${qs}` : ''}`);
+    return request(`/problems/${qs ? `?${qs}` : ''}`);
   },
 
   get: (id) => request(`/problems/${id}`),
 
   create: (data) =>
-    request('/problems', { method: 'POST', body: JSON.stringify(data) }),
+    request('/problems/', { method: 'POST', body: JSON.stringify(data) }),
 
   update: (id, data) =>
     request(`/problems/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
@@ -134,5 +147,5 @@ export const analytics = {
 // ── Recommendations ───────────────────────────────────────────────────────────
 
 export const recommend = {
-  top: (n = 5) => request(`/recommend?top_n=${n}`),
+  top: (n = 5) => request(`/recommend/?top_n=${n}`),
 };

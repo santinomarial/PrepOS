@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../api';
 
 export default function Register() {
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -25,36 +25,46 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm px-4">
-        <h1 className="text-xl font-semibold text-center text-gray-900 mb-8">PrepOS</h1>
+    <div className="min-h-screen bg-bg flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <span className="font-mono text-2xl font-semibold tracking-widest text-accent">
+            PREP<span className="text-primary">OS</span>
+          </span>
+          <p className="text-secondary text-sm mt-2">Interview prep, systematized.</p>
+        </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white border border-gray-200 rounded-lg p-6 space-y-4"
-        >
-          <p className="text-sm font-medium text-gray-700">Create an account</p>
+        <div className="bg-surface border border-border p-8">
+          <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-6">
+            Create account
+          </p>
 
           {error && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            <div className="border border-danger/40 bg-danger/10 text-danger text-xs px-3 py-2 mb-5">
               {error}
-            </p>
+            </div>
           )}
 
-          <div className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Email</label>
+              <label className="block text-xs font-mono text-secondary uppercase tracking-widest mb-2">
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full bg-bg border border-border text-primary text-sm px-3 py-2.5 transition-colors duration-150"
               />
             </div>
+
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Password</label>
+              <label className="block text-xs font-mono text-secondary uppercase tracking-widest mb-2">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
@@ -62,27 +72,27 @@ export default function Register() {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full bg-bg border border-border text-primary text-sm px-3 py-2.5 transition-colors duration-150"
               />
-              <p className="mt-1 text-xs text-gray-400">Minimum 8 characters</p>
+              <p className="mt-1.5 text-xs text-secondary font-mono">MIN 8 CHARS</p>
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 text-sm font-medium bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? 'Creating account…' : 'Create account'}
-          </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-2.5 text-sm font-semibold bg-accent text-bg hover:bg-accent-dim disabled:opacity-50 transition-colors duration-150"
+            >
+              {loading ? 'Creating account…' : 'Create account'}
+            </button>
+          </form>
 
-          <p className="text-xs text-center text-gray-500">
+          <p className="text-xs text-secondary text-center mt-6">
             Already have an account?{' '}
-            <Link to="/login" className="text-indigo-600 hover:underline">
+            <Link to="/login" className="text-accent hover:text-accent-dim transition-colors duration-150">
               Sign in
             </Link>
           </p>
-        </form>
+        </div>
       </div>
     </div>
   );

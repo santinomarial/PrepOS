@@ -4,36 +4,33 @@ import { analytics, problems as problemsApi, recommend } from '../api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const DIFFICULTY_BADGE = {
-  easy:   'bg-green-50  text-green-700',
-  medium: 'bg-yellow-50 text-yellow-700',
-  hard:   'bg-red-50    text-red-700',
+const DIFF_COLOR = {
+  easy:   'text-accent',
+  medium: 'text-warning',
+  hard:   'text-danger',
 };
 
-function badge(difficulty) {
-  return DIFFICULTY_BADGE[difficulty] ?? 'bg-gray-100 text-gray-600';
+function diffColor(d) {
+  return DIFF_COLOR[d] ?? 'text-secondary';
 }
 
-/**
- * Map a weakness score [0..1] to a Tailwind bg colour.
- * 0   → green (strong)   1 → red (weak)
- */
-function heatColor(score) {
-  if (score == null) return 'bg-gray-100 text-gray-400';
-  if (score >= 0.75) return 'bg-red-500   text-white';
-  if (score >= 0.55) return 'bg-orange-400 text-white';
-  if (score >= 0.40) return 'bg-yellow-300 text-gray-800';
-  if (score >= 0.25) return 'bg-lime-300   text-gray-800';
-  return                     'bg-green-400  text-white';
+/** Map weakness [0..1] to a css color string on the green→red scale. */
+function heatStyle(score) {
+  if (score == null) return { bg: '#1e1e2e', text: '#6b6b80' };
+  if (score >= 0.75) return { bg: '#ff456022', text: '#ff4560' };
+  if (score >= 0.55) return { bg: '#ffb80022', text: '#ffb800' };
+  if (score >= 0.35) return { bg: '#ffb80011', text: '#e8c44a' };
+  if (score >= 0.20) return { bg: '#00ff8815', text: '#00cc6a' };
+  return                    { bg: '#00ff8822', text: '#00ff88' };
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-lg px-4 py-4">
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
-      <p className="text-2xl font-semibold text-gray-900">{value ?? '—'}</p>
+    <div className="bg-surface border border-border p-5">
+      <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-3">{label}</p>
+      <p className="font-mono text-3xl font-semibold text-primary">{value ?? '—'}</p>
     </div>
   );
 }
@@ -42,19 +39,19 @@ function RecommendCard({ rec }) {
   return (
     <Link
       to={`/problems/${rec.problem_id}`}
-      className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-indigo-300 transition-colors"
+      className="block bg-surface border border-border border-l-2 border-l-accent px-4 py-3 hover:bg-border transition-colors duration-150"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{rec.title}</p>
+          <p className="text-sm font-medium text-primary truncate">{rec.title}</p>
           {rec.topic && (
-            <p className="text-xs text-gray-400 mt-0.5">{rec.topic}</p>
+            <p className="text-xs font-mono text-secondary mt-0.5">{rec.topic}</p>
           )}
-          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{rec.reason}</p>
+          <p className="text-xs text-secondary mt-1.5 leading-relaxed">{rec.reason}</p>
         </div>
         {rec.difficulty && (
-          <span className={`shrink-0 mt-0.5 text-xs px-2 py-0.5 rounded font-medium ${badge(rec.difficulty)}`}>
-            {rec.difficulty}
+          <span className={`shrink-0 text-xs font-mono font-medium mt-0.5 ${diffColor(rec.difficulty)}`}>
+            {rec.difficulty.toUpperCase()}
           </span>
         )}
       </div>
@@ -66,32 +63,37 @@ function RecommendCard({ rec }) {
 
 function TopicHeatmap({ topics }) {
   if (!topics || topics.length === 0) return null;
-
   return (
     <div className="mb-8">
-      <h2 className="text-sm font-medium text-gray-700 mb-3">Topic mastery</h2>
+      <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-4">
+        Topic mastery
+      </p>
       <div className="flex flex-wrap gap-2">
-        {topics.map((t) => (
-          <div
-            key={t.topic}
-            title={`${t.topic}: ${Math.round((1 - t.weakness_score) * 100)}% mastery · ${t.total_attempts} attempt${t.total_attempts !== 1 ? 's' : ''}`}
-            className={`rounded-md px-3 py-2 text-xs font-medium cursor-default select-none transition-transform hover:scale-105 ${heatColor(t.weakness_score)}`}
-          >
-            <span className="block">{t.topic}</span>
-            <span className="block opacity-80 mt-0.5">
-              {Math.round((1 - t.weakness_score) * 100)}%
-            </span>
-          </div>
-        ))}
+        {topics.map((t) => {
+          const { bg, text } = heatStyle(t.weakness_score);
+          const mastery = Math.round((1 - t.weakness_score) * 100);
+          return (
+            <div
+              key={t.topic}
+              title={`${t.topic} · ${mastery}% mastery · ${t.total_attempts} attempts`}
+              style={{ backgroundColor: bg, color: text, borderColor: text + '33' }}
+              className="border px-3 py-2 cursor-default select-none transition-transform duration-150 hover:scale-105"
+            >
+              <span className="block text-xs font-medium">{t.topic}</span>
+              <span className="block text-xs font-mono mt-0.5 opacity-80">{mastery}%</span>
+            </div>
+          );
+        })}
       </div>
+      {/* Legend */}
       <div className="flex items-center gap-2 mt-3">
-        <span className="text-xs text-gray-400">Weak</span>
-        <div className="flex gap-0.5">
-          {['bg-red-500','bg-orange-400','bg-yellow-300','bg-lime-300','bg-green-400'].map((c) => (
-            <div key={c} className={`w-5 h-2 rounded-sm ${c}`} />
+        <span className="text-xs font-mono text-secondary">WEAK</span>
+        <div className="flex gap-px">
+          {['#ff456033','#ffb80033','#ffb80020','#00ff8820','#00ff8833'].map((c, i) => (
+            <div key={i} className="w-6 h-1.5" style={{ backgroundColor: c }} />
           ))}
         </div>
-        <span className="text-xs text-gray-400">Strong</span>
+        <span className="text-xs font-mono text-secondary">STRONG</span>
       </div>
     </div>
   );
@@ -108,43 +110,36 @@ function WeaknessesPanel({ topics }) {
 
   return (
     <div className="mb-8">
-      <h2 className="text-sm font-medium text-gray-700 mb-3">Needs work</h2>
-      <div className="space-y-2">
+      <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-4">
+        Needs work
+      </p>
+      <div className="space-y-px">
         {bottom3.map((t) => {
           const mastery = Math.round((1 - t.weakness_score) * 100);
           const successPct = t.success_rate != null ? Math.round(t.success_rate * 100) : null;
           const avgTime = t.avg_time_minutes != null ? Math.round(t.avg_time_minutes) : null;
-
           return (
-            <div
-              key={t.topic}
-              className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between gap-4"
-            >
+            <div key={t.topic} className="bg-surface border border-border px-4 py-3 flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-900">{t.topic}</p>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <p className="text-sm font-medium text-primary">{t.topic}</p>
+                <div className="flex items-center gap-3 mt-1">
                   {successPct != null && (
-                    <span className="text-xs text-gray-500">{successPct}% success</span>
+                    <span className="text-xs font-mono text-secondary">{successPct}% success</span>
                   )}
                   {avgTime != null && (
-                    <>
-                      <span className="text-gray-300 text-xs">·</span>
-                      <span className="text-xs text-gray-500">avg {avgTime}m</span>
-                    </>
+                    <span className="text-xs font-mono text-secondary">avg {avgTime}m</span>
                   )}
-                  <span className="text-gray-300 text-xs">·</span>
-                  <span className="text-xs text-gray-500">{t.total_attempts} attempt{t.total_attempts !== 1 ? 's' : ''}</span>
+                  <span className="text-xs font-mono text-secondary">{t.total_attempts} attempts</span>
                 </div>
               </div>
-              {/* mini progress bar */}
-              <div className="shrink-0 w-20">
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className="shrink-0 w-24">
+                <div className="h-px bg-border">
                   <div
-                    className="h-full bg-indigo-500 rounded-full"
+                    className="h-px bg-accent transition-all duration-150"
                     style={{ width: `${mastery}%` }}
                   />
                 </div>
-                <p className="text-xs text-gray-400 text-right mt-0.5">{mastery}%</p>
+                <p className="text-xs font-mono text-accent text-right mt-1">{mastery}%</p>
               </div>
             </div>
           );
@@ -157,12 +152,12 @@ function WeaknessesPanel({ topics }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [summary,   setSummary]   = useState(null);
-  const [dueCount,  setDueCount]  = useState(null);
-  const [recs,      setRecs]      = useState([]);
-  const [topics,    setTopics]    = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
+  const [summary,  setSummary]  = useState(null);
+  const [dueCount, setDueCount] = useState(null);
+  const [recs,     setRecs]     = useState([]);
+  const [topics,   setTopics]   = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -175,56 +170,74 @@ export default function Dashboard() {
         setSummary(sum);
         setDueCount(due.length);
         setRecs(rec.recommendations);
-        // weaknesses returns { topics: [...], tags: [...] }
         setTopics(weak.topics ?? []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="p-8 text-sm text-gray-400">Loading…</div>;
-  if (error)   return <div className="p-8 text-sm text-red-600">{error}</div>;
+  if (loading) {
+    return (
+      <div className="p-8">
+        <p className="text-xs font-mono text-secondary uppercase tracking-widest animate-pulse">
+          Loading…
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <p className="text-xs font-mono text-danger">{error}</p>
+      </div>
+    );
+  }
 
   const successPct = summary
     ? Math.round((summary.avg_success_rate ?? 0) * 100)
     : null;
 
   return (
-    <div className="p-8 max-w-2xl">
-      <h1 className="text-lg font-semibold text-gray-900 mb-6">Dashboard</h1>
+    <div className="p-8 max-w-3xl">
+      <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-8">
+        Dashboard
+      </p>
 
-      {/* ── Stats grid ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      {/* ── Stats ───────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px mb-8 border border-border">
         <StatCard label="Problems"     value={summary?.total_problems} />
         <StatCard label="Due today"    value={dueCount} />
         <StatCard label="Streak"       value={summary ? `${summary.current_streak_days}d` : null} />
         <StatCard label="Success rate" value={successPct != null ? `${successPct}%` : null} />
       </div>
 
-      {/* ── Topic heatmap ────────────────────────────────────────────── */}
+      {/* ── Heatmap ─────────────────────────────────────────────────────── */}
       <TopicHeatmap topics={topics} />
 
-      {/* ── Weaknesses panel ─────────────────────────────────────────── */}
+      {/* ── Weaknesses ──────────────────────────────────────────────────── */}
       <WeaknessesPanel topics={topics} />
 
-      {/* ── Recommendations ──────────────────────────────────────────── */}
-      <h2 className="text-sm font-medium text-gray-700 mb-3">Recommended now</h2>
+      {/* ── Recommendations ─────────────────────────────────────────────── */}
+      <p className="text-xs font-mono text-secondary uppercase tracking-widest mb-4">
+        Recommended now
+      </p>
 
       {recs.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center">
-          <p className="text-sm text-gray-400">No recommendations yet.</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Add problems and log a few attempts to get personalised suggestions.
+        <div className="bg-surface border border-border px-4 py-8 text-center">
+          <p className="text-sm text-secondary">No recommendations yet.</p>
+          <p className="text-xs font-mono text-secondary mt-1 opacity-60">
+            Add problems and log attempts to get suggestions.
           </p>
           <Link
             to="/problems"
-            className="mt-3 inline-block text-xs font-medium text-indigo-600 hover:underline"
+            className="mt-4 inline-block text-xs font-mono text-accent hover:text-accent-dim transition-colors duration-150"
           >
-            Go to Problems →
+            → Go to Problems
           </Link>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-px">
           {recs.map((rec) => (
             <RecommendCard key={rec.problem_id} rec={rec} />
           ))}

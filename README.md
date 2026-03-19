@@ -1,46 +1,53 @@
 # PrepOS
 
-FastAPI + async SQLAlchemy backend for tracking **coding interview prep problems** and your **attempts** at solving them.
+A full-stack coding interview prep tracker. Log problems, record attempts, and let the SM-2 spaced-repetition algorithm tell you what to review next. Built for engineers who treat interview prep like a system.
 
-## What exists so far
+## Stack
 
-- **REST API** with two resources:
-  - **Problems**: metadata you want to practice (title, url, topic, difficulty, tags, notes).
-  - **Attempts**: each time you try a problem (solved, time spent, mistakes, timestamp).
-- **Postgres persistence** via **SQLAlchemy 2.0 (async)** + `asyncpg`.
-- **Migrations** via **Alembic** (initial migration creates `problems` + `attempts` tables).
-- **Health check** endpoint: `GET /health`
-- **Interactive API docs** (FastAPI): `GET /docs`
+| Layer | Tech |
+|---|---|
+| API | FastAPI 0.115, Python 3.14 |
+| ORM | SQLAlchemy 2.0 (async) + asyncpg |
+| Migrations | Alembic |
+| Auth | JWT (python-jose) + bcrypt |
+| Database | PostgreSQL |
+| Frontend | React 18, Vite 5, Tailwind CSS 3, Recharts |
 
-## Tech stack
+## Features
 
-- **FastAPI**
-- **Uvicorn**
-- **SQLAlchemy (async)**
-- **Postgres** (`asyncpg`)
-- **Alembic**
-- **pydantic-settings** + `.env`
+- **Problems CRUD** — title, url, topic, difficulty, tags, notes
+- **Attempt logging** — solved flag, time to solve, mistakes, timestamp
+- **SM-2 spaced repetition** — `GET /problems/due` returns problems due for review, sorted by priority score
+- **Analytics** — weakness scores per topic/tag, streak, success rate
+- **Recommender** — composite scoring (topic weakness × overdue × difficulty fit × recency)
+- **JWT auth** — all data scoped per user; register/login return a Bearer token
+- **React frontend** — dark terminal-aesthetic UI with dashboard, problems table, and problem detail page
 
 ## Project layout
 
 ```
 app/
-  main.py              # FastAPI app + router registration
-  config.py            # Settings (reads .env)
-  database.py          # Async engine/session + Base + dependency
-  models/              # SQLAlchemy models (Problem, Attempt)
-  schemas/             # Pydantic schemas for API I/O
-  routers/             # FastAPI routers (/problems, /attempts)
-  services/            # CRUD logic used by routers
-alembic/               # Alembic env + versions
-alembic.ini
+  main.py              # FastAPI app, CORS, router registration
+  config.py            # pydantic-settings (.env)
+  database.py          # async engine + get_db dependency
+  models/              # User, Problem, Attempt ORM models
+  schemas/             # Pydantic schemas (request/response)
+  routers/             # auth, problems, attempts, analytics, recommender
+  services/            # business logic (scheduler, analytics, recommender, auth)
+alembic/               # async-aware env.py + migration versions
+client/
+  src/
+    api.js             # fetch wrapper (JWT, error handling)
+    App.jsx            # React Router + ProtectedRoute
+    components/        # Layout, ProtectedRoute
+    pages/             # Login, Register, Dashboard, Problems, ProblemDetail
 requirements.txt
-.env
+ALGORITHM.md           # recommender scoring formula
 ```
 
 ## Setup
 
-### 1) Create a virtualenv and install dependencies
+### 1. Install Python dependencies
 
 ```bash
 python -m venv .venv
@@ -48,213 +55,105 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2) Configure the database URL
+> **Note:** This project runs on Python 3.14. `asyncpg` must be installed from source (no wheel yet for 3.14).
 
-This project expects `DATABASE_URL` to be set (loaded from `.env`).
+### 2. Configure environment
 
-Current `.env` example:
+Create a `.env` file in the project root:
 
 ```bash
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/prepos
+JWT_SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=1440
 ```
 
-Make sure Postgres is running and the database exists (e.g. create `prepos`).
-
-## Database migrations (Alembic)
-
-Run migrations to create the tables:
+### 3. Run migrations
 
 ```bash
 alembic upgrade head
 ```
 
-## Run the API
+### 4. Start the API
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Then open:
+API available at `http://localhost:8000` — interactive docs at `http://localhost:8000/docs`.
 
-- **Swagger UI**: `http://127.0.0.1:8000/docs`
-- **Health**: `http://127.0.0.1:8000/health`
+### 5. Start the frontend
 
-## API endpoints
+```bash
+cd client
+npm install
+npm run dev
+```
+
+Frontend available at `http://localhost:5173`.
+
+## API reference
+
+All endpoints except `/auth/register` and `/auth/login` require a Bearer token:
+
+```
+Authorization: Bearer <token>
+```
+
+### Auth
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/register` | Create account → returns JWT |
+| POST | `/auth/login` | Login (form-encoded) → returns JWT |
+| GET | `/auth/me` | Current user |
+
+**Register / Login:**
+```bash
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "yourpassword"}'
+
+curl -X POST http://localhost:8000/auth/login \
+  -d "username=you@example.com&password=yourpassword"
+```
 
 ### Problems
 
-- `GET /problems` — list all problems
-- `GET /problems/{problem_id}` — get one problem
-- `POST /problems` — create a problem
-- `PATCH /problems/{problem_id}` — update a problem (partial)
-- `DELETE /problems/{problem_id}` — delete a problem
+| Method | Path | Description |
+|---|---|---|
+| GET | `/problems/` | List problems (filters: `topic`, `difficulty`, `tag`) |
+| POST | `/problems/` | Create a problem |
+| GET | `/problems/due` | Problems due for review today, sorted by priority |
+| GET | `/problems/{id}` | Get problem with computed stats |
+| PATCH | `/problems/{id}` | Partial update |
+| DELETE | `/problems/{id}` | Delete |
+| GET | `/problems/{id}/attempts` | Attempt history |
+| POST | `/problems/{id}/attempts` | Log a new attempt |
 
-#### Problem fields
+**Problem response includes computed fields:** `attempt_count`, `last_attempted_at`, `success_rate`, `next_review_date`, `priority_score`.
 
-- **title** (required)
-- **url** (optional)
-- **topic** (optional)
-- **difficulty** (optional)
-- **tags** (optional, currently stored as text)
-- **notes** (optional)
+### Analytics
 
-### Attempts
+| Method | Path | Description |
+|---|---|---|
+| GET | `/analytics/summary` | Total problems, attempts, streak, avg success rate, strongest/weakest topic |
+| GET | `/analytics/weaknesses` | Topics and tags ranked by weakness score |
 
-- `GET /attempts` — list all attempts
-- `GET /attempts/{attempt_id}` — get one attempt
-- `POST /attempts` — create an attempt
-- `PATCH /attempts/{attempt_id}` — update an attempt (partial)
-- `DELETE /attempts/{attempt_id}` — delete an attempt
+Weakness score: `(1 - success_rate) × 0.6 + normalized_avg_time × 0.4`
 
-#### Attempt fields
+### Recommender
 
-- **problem_id** (required)
-- **solved** (default `false`)
-- **time_to_solve_minutes** (optional int)
-- **mistakes** (optional text)
-- **attempted_at** is set automatically by the DB
+| Method | Path | Description |
+|---|---|---|
+| GET | `/recommend/` | Top N problems to study now (default `?top_n=5`) |
 
-## Attempts API — curl examples
+Composite score: `0.4 × topic_weakness + 0.3 × overdue_score + 0.2 × difficulty_fit + 0.1 × recency_penalty`. See [ALGORITHM.md](ALGORITHM.md) for full details.
 
-> Nested under `/problems/{id}/attempts`. All examples assume the server is running on `http://localhost:8000`.
-
-### Log a new attempt (minimal)
+## Running tests
 
 ```bash
-curl -s -X POST http://localhost:8000/problems/1/attempts \
-  -H "Content-Type: application/json" \
-  -d '{"solved": true, "time_to_solve_minutes": 18}' | jq
+pytest tests/
 ```
 
-### Log a backfilled attempt with a specific timestamp
-
-```bash
-curl -s -X POST http://localhost:8000/problems/1/attempts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "solved": false,
-    "time_to_solve_minutes": 45,
-    "mistakes": "Off-by-one in the sliding window bounds",
-    "attempted_at": "2026-03-10T14:30:00Z"
-  }' | jq
-```
-
-### List all attempts for a problem (sorted most-recent first)
-
-```bash
-curl -s http://localhost:8000/problems/1/attempts | jq
-```
-
-### Problem response now includes computed stats
-
-```bash
-curl -s http://localhost:8000/problems/1 | jq '.attempt_count, .last_attempted_at, .success_rate'
-# 3
-# "2026-03-16T10:00:00+00:00"
-# 66.7
-```
-
-### Error: attempt on a non-existent problem
-
-```bash
-curl -s -X POST http://localhost:8000/problems/999/attempts \
-  -H "Content-Type: application/json" \
-  -d '{"solved": true}' | jq
-# {"detail": "Problem not found"}
-```
-
----
-
-## Problems API — curl examples
-
-> Assumes the server is running on `http://localhost:8000`.
-
-### Create a problem
-
-```bash
-curl -s -X POST http://localhost:8000/problems \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Two Sum",
-    "url": "https://leetcode.com/problems/two-sum/",
-    "topic": "arrays",
-    "difficulty": "easy",
-    "tags": "hash-map,arrays",
-    "notes": "Classic O(n) hash map solution"
-  }' | jq
-```
-
-### List all problems
-
-```bash
-curl -s http://localhost:8000/problems | jq
-```
-
-### List problems with filters
-
-```bash
-# By topic
-curl -s "http://localhost:8000/problems?topic=arrays" | jq
-
-# By difficulty
-curl -s "http://localhost:8000/problems?difficulty=easy" | jq
-
-# By tag (substring match)
-curl -s "http://localhost:8000/problems?tag=hash-map" | jq
-
-# Combined filters
-curl -s "http://localhost:8000/problems?topic=arrays&difficulty=easy" | jq
-```
-
-### Get a single problem
-
-```bash
-curl -s http://localhost:8000/problems/1 | jq
-```
-
-### Update a problem (partial)
-
-```bash
-curl -s -X PATCH http://localhost:8000/problems/1 \
-  -H "Content-Type: application/json" \
-  -d '{"difficulty": "medium", "notes": "Updated notes"}' | jq
-```
-
-### Delete a problem
-
-```bash
-curl -s -X DELETE http://localhost:8000/problems/1 -o /dev/null -w "%{http_code}\n"
-# Returns 204 on success
-```
-
-### Error responses
-
-**Not found (404)**
-```bash
-curl -s http://localhost:8000/problems/999 | jq
-# {"detail": "Problem not found"}
-```
-
-**Validation error (422)** — e.g. missing required `title`
-```bash
-curl -s -X POST http://localhost:8000/problems \
-  -H "Content-Type: application/json" \
-  -d '{}' | jq
-# {
-#   "detail": "Validation error",
-#   "errors": [{"field": "title", "message": "Field required"}]
-# }
-```
-
-## Notes / current behavior
-
-- The DB engine is created with `echo=True`, so SQL statements will be logged to the console.
-- If a requested `problem_id`/`attempt_id` doesn’t exist, the API returns **404** with `detail` of `"Problem not found"` / `"Attempt not found"`.
-
-## Next likely steps
-
-- Filter attempts by problem (e.g. `GET /problems/{id}/attempts`) and/or join responses.
-- Normalize tags (store as array or separate table instead of text).
-- Add Docker/dev compose for Postgres + API.
-- Add validation/constraints (difficulty enum, URL format, etc.).
-
+Tests cover the SM-2 scheduler logic (9 cases: no attempts, interval growth, failure reset, overdue priority, EF clamping, etc.).

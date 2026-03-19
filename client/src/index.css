@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    background-color: #0a0a0f;
+    color: #e8e8f0;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Accent focus ring for all inputs and selects */
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #00ff88 !important;
+    box-shadow: 0 0 0 1px #00ff8840;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #0a0a0f; }
+  ::-webkit-scrollbar-thumb { background: #1e1e2e; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2e2e4e; }
+}
+
+/* Grid background for main content area */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(30, 30, 46, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 30, 46, 0.4) 1px, transparent 1px);
+  background-size: 32px 32px;
+}

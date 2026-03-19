@@ -51,8 +51,7 @@ async def create(db: AsyncSession, payload: ProblemCreate, user_id: int) -> Prob
     problem = Problem(**payload.model_dump(), user_id=user_id)
     db.add(problem)
     await db.commit()
-    await db.refresh(problem)
-    return problem
+    return await get_by_id(db, problem.id, user_id)
 
 
 async def update(
@@ -62,8 +61,7 @@ async def update(
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(problem, field, value)
     await db.commit()
-    await db.refresh(problem)
-    return problem
+    return await get_by_id(db, problem_id, user_id)
 
 
 async def delete(db: AsyncSession, problem_id: int, user_id: int) -> None:
