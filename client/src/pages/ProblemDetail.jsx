@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts';
 import { problems as problemsApi, attempts as attemptsApi } from '../api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,45 +27,130 @@ function formatDate(dateStr) {
 function formatDateTime(dateStr) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit',
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatItem({ label, value }) {
+function StatItem({ label, value, highlight }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
       <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-      <p className="text-sm font-semibold text-gray-900">{value ?? '—'}</p>
+      <p className={`text-sm font-semibold ${highlight ? 'text-red-600' : 'text-gray-900'}`}>
+        {value ?? '—'}
+      </p>
     </div>
   );
 }
 
-function AttemptRow({ attempt }) {
+// ── Solve-time trend chart ────────────────────────────────────────────────────
+
+function SolveTimeChart({ attempts }) {
+  const data = [...attempts]
+    .filter((a) => a.time_to_solve_minutes != null)
+    .reverse()  // oldest first for the chart
+    .map((a, i) => ({
+      n: i + 1,
+      time: a.time_to_solve_minutes,
+      label: formatDateTime(a.attempted_at),
+      solved: a.solved,
+    }));
+
+  if (data.length < 2) return null;
+
   return (
-    <div className="flex items-start justify-between gap-3 py-3 border-b border-gray-100 last:border-0">
-      <div className="flex items-center gap-3 min-w-0">
-        <span
-          className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
-            attempt.solved
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-600'
-          }`}
-        >
-          {attempt.solved ? '✓' : '✗'}
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs text-gray-500">{formatDateTime(attempt.attempted_at)}</p>
-          {attempt.mistakes && (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{attempt.mistakes}</p>
-          )}
-        </div>
+    <div className="bg-white border border-gray-200 rounded-lg px-4 py-4 mb-6">
+      <p className="text-xs font-medium text-gray-500 mb-3">Solve time trend (minutes)</p>
+      <ResponsiveContainer width="100%" height={140}>
+        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis
+            dataKey="n"
+            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tickLine={false}
+            axisLine={false}
+            label={{ value: 'attempt #', position: 'insideBottomRight', offset: 0, fontSize: 10, fill: '#d1d5db' }}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+          />
+          <Tooltip
+            contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e5e7eb', boxShadow: 'none' }}
+            formatter={(val, _name, props) => [
+              `${val}m — ${props.payload.solved ? 'solved' : 'not solved'}`,
+              props.payload.label,
+            ]}
+            labelFormatter={() => ''}
+          />
+          <Line
+            type="monotone"
+            dataKey="time"
+            stroke="#6366f1"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#6366f1', strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── Timeline ──────────────────────────────────────────────────────────────────
+
+function Timeline({ attempts }) {
+  if (attempts.length === 0) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center">
+        <p className="text-sm text-gray-400">No attempts logged yet.</p>
       </div>
-      {attempt.time_to_solve_minutes != null && (
-        <span className="shrink-0 text-xs text-gray-500">{attempt.time_to_solve_minutes}m</span>
-      )}
+    );
+  }
+
+  return (
+    <div className="relative">
+      {/* vertical line */}
+      <div className="absolute left-[9px] top-2 bottom-2 w-px bg-gray-200" />
+
+      <div className="space-y-4">
+        {attempts.map((a) => (
+          <div key={a.id} className="flex gap-4 relative">
+            {/* dot */}
+            <div
+              className={`shrink-0 w-[18px] h-[18px] rounded-full border-2 mt-0.5 ${
+                a.solved
+                  ? 'bg-green-500 border-green-500'
+                  : 'bg-white border-red-400'
+              }`}
+            />
+
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-medium ${
+                      a.solved ? 'text-green-700' : 'text-red-600'
+                    }`}
+                  >
+                    {a.solved ? 'Solved' : 'Not solved'}
+                  </span>
+                  {a.time_to_solve_minutes != null && (
+                    <span className="text-xs text-gray-400">· {a.time_to_solve_minutes}m</span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400">{formatDateTime(a.attempted_at)}</span>
+              </div>
+              {a.mistakes && (
+                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{a.mistakes}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -70,11 +158,11 @@ function AttemptRow({ attempt }) {
 // ── Log Attempt Form ──────────────────────────────────────────────────────────
 
 function LogAttemptForm({ problemId, onLogged }) {
-  const [solved, setSolved]     = useState(false);
-  const [time, setTime]         = useState('');
-  const [mistakes, setMistakes] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [solved,    setSolved]    = useState(false);
+  const [time,      setTime]      = useState('');
+  const [mistakes,  setMistakes]  = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [error,     setError]     = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -110,30 +198,26 @@ function LogAttemptForm({ problemId, onLogged }) {
         </p>
       )}
 
-      <div className="flex items-center gap-3">
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={solved}
-            onChange={(e) => setSolved(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-          />
-          Solved
-        </label>
-      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={solved}
+          onChange={(e) => setSolved(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        Solved
+      </label>
 
-      <div className="flex gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Time (minutes)</label>
-          <input
-            type="number"
-            min="1"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            placeholder="e.g. 20"
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-28"
-          />
-        </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Time (minutes)</label>
+        <input
+          type="number"
+          min="1"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          placeholder="e.g. 20"
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 w-28"
+        />
       </div>
 
       <div>
@@ -162,10 +246,10 @@ function LogAttemptForm({ problemId, onLogged }) {
 
 export default function ProblemDetail() {
   const { id } = useParams();
-  const [problem, setProblem]   = useState(null);
-  const [history, setHistory]   = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
+  const [problem, setProblem] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState('');
 
   async function load() {
     setError('');
@@ -197,7 +281,7 @@ export default function ProblemDetail() {
 
   return (
     <div className="p-8 max-w-2xl">
-      {/* ── Back link ──────────────────────────────────────────────────── */}
+      {/* back */}
       <Link
         to="/problems"
         className="inline-block text-xs text-gray-400 hover:text-gray-600 mb-5 transition-colors"
@@ -205,7 +289,7 @@ export default function ProblemDetail() {
         ← Problems
       </Link>
 
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-gray-900 leading-tight">
@@ -232,7 +316,7 @@ export default function ProblemDetail() {
         )}
       </div>
 
-      {/* ── Stats grid ─────────────────────────────────────────────────── */}
+      {/* ── Stats ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatItem label="Attempts"     value={problem.attempt_count} />
         <StatItem label="Success rate" value={successPct} />
@@ -240,16 +324,15 @@ export default function ProblemDetail() {
           label="Next review"
           value={
             problem.next_review_date
-              ? isOverdue
-                ? 'Overdue'
-                : formatDate(problem.next_review_date)
+              ? isOverdue ? 'Overdue' : formatDate(problem.next_review_date)
               : 'Not scheduled'
           }
+          highlight={isOverdue}
         />
         <StatItem label="Last attempt" value={formatDate(problem.last_attempted_at)} />
       </div>
 
-      {/* ── Tags ───────────────────────────────────────────────────────── */}
+      {/* ── Tags ────────────────────────────────────────────────────────── */}
       {problem.tags && (
         <div className="flex flex-wrap gap-1.5 mb-6">
           {problem.tags.split(',').map((t) => t.trim()).filter(Boolean).map((t) => (
@@ -260,25 +343,17 @@ export default function ProblemDetail() {
         </div>
       )}
 
-      {/* ── Log new attempt ────────────────────────────────────────────── */}
+      {/* ── Solve time chart ────────────────────────────────────────────── */}
+      <SolveTimeChart attempts={history} />
+
+      {/* ── Log attempt ─────────────────────────────────────────────────── */}
       <div className="mb-6">
         <LogAttemptForm problemId={id} onLogged={load} />
       </div>
 
-      {/* ── Attempt history ────────────────────────────────────────────── */}
+      {/* ── Timeline ────────────────────────────────────────────────────── */}
       <h2 className="text-sm font-medium text-gray-700 mb-3">Attempt history</h2>
-
-      {history.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center">
-          <p className="text-sm text-gray-400">No attempts logged yet.</p>
-        </div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-lg px-4 divide-y-0">
-          {history.map((a) => (
-            <AttemptRow key={a.id} attempt={a} />
-          ))}
-        </div>
-      )}
+      <Timeline attempts={history} />
     </div>
   );
 }
