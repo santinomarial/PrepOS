@@ -101,9 +101,11 @@ def _compute_streak(dates: list[date]) -> int:
 # ── DB loader ─────────────────────────────────────────────────────────────────
 
 
-async def _load_problems(db: AsyncSession) -> list[Problem]:
+async def _load_problems(db: AsyncSession, user_id: int) -> list[Problem]:
     result = await db.execute(
-        select(Problem).options(selectinload(Problem.attempts))
+        select(Problem)
+        .options(selectinload(Problem.attempts))
+        .where(Problem.user_id == user_id)
     )
     return list(result.scalars().all())
 
@@ -190,16 +192,16 @@ def topic_stats_map(problems: list[Problem]) -> dict[str, tuple[float, float]]:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-async def get_weaknesses(db: AsyncSession) -> WeaknessesResponse:
-    problems = await _load_problems(db)
+async def get_weaknesses(db: AsyncSession, user_id: int) -> WeaknessesResponse:
+    problems = await _load_problems(db, user_id)
     return WeaknessesResponse(
         topics=_to_stats(_topic_buckets(problems)),
         tags=_to_stats(_tag_buckets(problems)),
     )
 
 
-async def get_summary(db: AsyncSession) -> SummaryResponse:
-    problems = await _load_problems(db)
+async def get_summary(db: AsyncSession, user_id: int) -> SummaryResponse:
+    problems = await _load_problems(db, user_id)
 
     all_attempts = [a for p in problems for a in p.attempts]
     total_attempts = len(all_attempts)

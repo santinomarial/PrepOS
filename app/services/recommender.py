@@ -139,9 +139,11 @@ def _build_reason(
 # ── DB loader ─────────────────────────────────────────────────────────────────
 
 
-async def _load_problems(db: AsyncSession) -> list[Problem]:
+async def _load_problems(db: AsyncSession, user_id: int) -> list[Problem]:
     result = await db.execute(
-        select(Problem).options(selectinload(Problem.attempts))
+        select(Problem)
+        .options(selectinload(Problem.attempts))
+        .where(Problem.user_id == user_id)
     )
     return list(result.scalars().all())
 
@@ -149,8 +151,8 @@ async def _load_problems(db: AsyncSession) -> list[Problem]:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-async def get_recommendations(db: AsyncSession, top_n: int = 5) -> RecommendResponse:
-    problems = await _load_problems(db)
+async def get_recommendations(db: AsyncSession, top_n: int = 5, user_id: int = 0) -> RecommendResponse:
+    problems = await _load_problems(db, user_id)
     today = date.today()
 
     # Topic weakness and success rate for every topic that has attempts.
