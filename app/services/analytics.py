@@ -175,6 +175,18 @@ def _to_stats(buckets: dict[str, _Bucket]) -> list[GroupStats]:
     return sorted(stats, key=lambda s: s.weakness_score, reverse=True)
 
 
+# ── Shared helpers (used by other services) ───────────────────────────────────
+
+
+def topic_stats_map(problems: list[Problem]) -> dict[str, tuple[float, float]]:
+    """Return {topic: (weakness_score, success_rate)} for all topics with attempts.
+
+    Called by the recommender service so it can borrow topic-weakness data
+    without duplicating the bucket-building logic.
+    """
+    return {s.name: (s.weakness_score, s.success_rate) for s in _to_stats(_topic_buckets(problems))}
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 

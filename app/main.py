@@ -2,13 +2,14 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.routers import analytics, attempts, problems
+from app.routers import analytics, attempts, problems, recommender
 
 app = FastAPI(title="PrepOS")
 
 app.include_router(problems.router)
 app.include_router(attempts.router)
 app.include_router(analytics.router)
+app.include_router(recommender.router)
 
 
 @app.exception_handler(RequestValidationError)
